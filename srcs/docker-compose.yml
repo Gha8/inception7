@@ -1,0 +1,97 @@
+services:
+  mariadb:
+    build: requirements/mariadb
+    container_name: mariadb
+    networks:
+      - inception
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    env_file: .env
+    environment:
+      SQL_ROOT_PASSWORD_FILE: /run/secrets/SQL_ROOT_PASSWORD
+      SQL_PASSWORD_FILE: /run/secrets/SQL_PASSWORD
+    secrets:
+      - SQL_ROOT_PASSWORD
+      - SQL_PASSWORD
+    restart: always 
+    expose:
+      - "3306"
+
+  wordpress:
+    build: requirements/wordpress
+    container_name: wordpress
+    depends_on:
+      - mariadb
+    networks:
+      - inception
+    volumes:
+      - wordpress_data:/var/www/html
+    env_file: .env
+    environment:
+      SQL_PASSWORD_FILE: /run/secrets/SQL_PASSWORD
+      ADMIN_PASSWORD_FILE: /run/secrets/ADMIN_PASSWORD
+    secrets:
+      - SQL_PASSWORD
+      - ADMIN_PASSWORD
+    restart: always
+    expose: 
+      - "9000"
+
+  nginx:
+    build: requirements/nginx
+    container_name: nginx
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    networks:
+      - inception
+    volumes:
+      - wordpress_data:/var/www/html
+    env_file: .env
+    restart: always
+
+  adminer:
+    build: ./requirements/bonus/Adminer
+    container_name: adminer
+    restart: always
+    networks:
+      - inception
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mariadb
+  
+  website:
+    build: ./requirements/bonus/static_website
+    container_name: website
+    restart: always
+    networks:
+      - inception
+    ports:
+      - "8082:80"
+
+networks:
+  inception:
+    driver: bridge
+
+volumes:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/gmohamed/data/mariadb
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/gmohamed/data/wordpress
+secrets:
+  SQL_PASSWORD:
+    file: ../secrets/db_password.txt
+  SQL_ROOT_PASSWORD:
+    file: ../secrets/db_root_password.txt
+  ADMIN_PASSWORD:
+    file: ../secrets/credentials.txt
